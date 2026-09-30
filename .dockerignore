@@ -1,0 +1,13 @@
+.git
+.venv
+node_modules
+.sites-runtime
+**/__pycache__
+**/*.pyc
+deploy/.env
+.env
+backups
+releases
+reports
+*.zip
+*.tar.gz

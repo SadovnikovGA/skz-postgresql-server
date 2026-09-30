@@ -1,0 +1,39 @@
+{
+  "test": "50 users / 6 roles",
+  "kind": "Local Node VM with DOM stubs; NOT concurrent browser/server load",
+  "at": "2026-09-13T17:57:07.628Z",
+  "passed": [
+    "50 users: 1 admin, 3 operators, 23 FD, 23 UOSO",
+    "All 50 users rendered",
+    "Case-insensitive name search with whitespace",
+    "Dashboard counts partition 10000 visible records",
+    "50 sequential fixture identities: assigned-record visibility with unique names",
+    "New notifications isolated by recipient ID",
+    "Due reminders deduplicated per recipient",
+    "All 50 identities can be selected",
+    "Identical names do not share assignments",
+    "Renaming preserves assigned visibility",
+    "9999 valid import rows accepted",
+    "Import has no validation errors",
+    "9999 records and operator notifications created",
+    "Repeated file skips all 9999 duplicates"
+  ],
+  "findings": [
+    {
+      "severity": "not_tested",
+      "name": "50 simultaneous sessions, database, network, browser rendering, backups and concurrency",
+      "observed": "No backend or shared database connected. VM timings exclude real DOM layout, network and durable writes."
+    }
+  ],
+  "timings_ms": {
+    "users_list_html_50": 1.71,
+    "filter_sort_10000": 80.23,
+    "dashboard_html_10000": 113.72,
+    "50_sequential_permission_checks_10000": 210.08,
+    "xlsx_preview_9999": 791,
+    "xlsx_commit_9999": 441.72,
+    "xlsx_duplicate_preview_9999": 595,
+    "xlsx_serialize_9999_by_23": 853.23
+  },
+  "export_bytes": 8708992
+}

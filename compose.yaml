@@ -1,0 +1,85 @@
+name: skz
+x-app: &app
+  build: .
+  image: skz-server:local
+  environment: &environment
+    DATABASE_URL: postgresql://skz:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/skz
+    APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
+    SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
+    DB_POOL_MAX: "8"
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  read_only: true
+  tmpfs: ["/tmp"]
+services:
+  db:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: skz
+      POSTGRES_USER: skz
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      TZ: Europe/Moscow
+    volumes: ["database:/var/lib/postgresql/data"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skz -d skz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    <<: *app
+    command: ["python", "server/migrate.py"]
+    environment:
+      <<: *environment
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:?Set ADMIN_INITIAL_PASSWORD}
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+  app:
+    <<: *app
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health',timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  worker:
+    <<: *app
+    command: ["python", "server/worker.py"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  proxy:
+    image: caddy:2.10.2-alpine
+    profiles: ["public"]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app: {condition: service_healthy}
+    restart: unless-stopped
+  backup:
+    image: postgres:17.6-alpine
+    environment:
+      PGHOST: db
+      PGUSER: skz
+      PGDATABASE: skz
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      TZ: Europe/Moscow
+    entrypoint: ["/bin/sh", "/scripts/backup.sh"]
+    volumes:
+      - ./deploy/backup.sh:/scripts/backup.sh:ro
+      - backups:/backups
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+volumes:
+  database:
+  backups:
+  caddy_data:
+  caddy_config:
