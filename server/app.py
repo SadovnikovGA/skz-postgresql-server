@@ -40,7 +40,7 @@ def security():
     if request.method not in ('GET','HEAD','OPTIONS'):
         if request.headers.get('Origin')!=ORIGIN:
             return jsonify(error='Недопустимый источник запроса'),403
-    if request.path=='/api/auth/login':return
+    if request.path in ('/api/auth/login','/api/setup/admin'):return
     token=request.cookies.get('skz_session','')
     if not token:return jsonify(error='Необходим вход в систему'),401
     with connection() as db:
@@ -107,6 +107,23 @@ def login():
         if not valid:return jsonify(error='Неверный логин или пароль'),401
         token,csrf=new_session(db,u['id'])
     return set_session(jsonify(user=public_user(u),csrf=csrf),token)
+
+@app.post('/api/setup/admin')
+def setup_first_admin():
+    """Создание первого администратора. Работает только если админ не существует."""
+    with connection() as db:
+        if db.execute('SELECT 1 FROM users WHERE role=0 LIMIT 1').fetchone():
+            return jsonify(error='Администратор уже существует'),403
+    data=payload()
+    name=str(data.get('name','')).strip()
+    login=str(data.get('login','')).strip()
+    password=data.get('password','')
+    if not name or not login or not password:raise Invalid('Укажите ФИО, логин и пароль')
+    hashed=hash_password(password)
+    with connection() as db:
+        u=db.execute('INSERT INTO users(full_name,login,role,password_hash) VALUES (%s,%s,%s,%s) RETURNING *',(name,login,0,hashed)).fetchone()
+        db.execute('INSERT INTO action_log(user_id,action,after_values) VALUES (%s,%s,%s)',(u['id'],'Создание администратора',js(public_user(u))))
+    return jsonify(user=public_user(u),message='Администратор создан'),201
 
 @app.get('/api/me')
 def me():
